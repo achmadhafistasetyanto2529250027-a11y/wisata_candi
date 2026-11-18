@@ -3,6 +3,8 @@ import 'package:wisata_candi/screens/favorite_screen.dart';
 import 'package:wisata_candi/screens/home_screen.dart';
 import 'package:wisata_candi/screens/profile_screen.dart';
 import 'package:wisata_candi/screens/search_screen.dart';
+import 'package:wisata_candi/screens/sign_in_screens.dart';
+import 'package:wisata_candi/screens/sign_up_screens.dart';
 
 // Titik awal program. runApp() menjalankan widget root.
 void main() {
@@ -16,9 +18,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false, // menyembunyikan label "DEBUG"
       title: 'Wisata Candi',
       theme: ThemeData(
-        // Tema AppBar: ikon dan judul berwarna ungu tua
         appBarTheme: const AppBarTheme(
           iconTheme: IconThemeData(color: Colors.deepPurple),
           titleTextStyle: TextStyle(
@@ -28,16 +30,23 @@ class MyApp extends StatelessWidget {
           ),
         ),
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple)
-            .copyWith(
-          primary: Colors.deepPurple,
-          surface: Colors.deepPurple[50],
-        ),
+            .copyWith(primary: Colors.deepPurple, surface: Colors.deepPurple[50]),
         useMaterial3: true,
       ),
+      // Layar pertama. Rute '/' otomatis mengarah ke home.
       home: const MainScreen(),
+      initialRoute: '/',
+      // Peta rute: nama rute -> layar tujuan.
+      // Dipanggil lewat Navigator.pushNamed(context, '/signin').
+      routes: {
+        '/homescreen': (context) => const HomeScreen(),
+        '/signin': (context) => const SignInScreen(),
+        '/signup': (context) => const SignUpScreen(),
+      },
     );
   }
 }
+
 
 // Layar utama berisi BottomNavigationBar.
 // StatefulWidget karena item yang dipilih berubah.
