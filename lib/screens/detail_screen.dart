@@ -1,26 +1,86 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wisata_candi/models/candi.dart';
 
-// Layar detail: DetailHeader + DetailInfo + DetailGallery.
-class DetailScreen extends StatelessWidget {
-  final Candi candi; // dikirim dari ItemCard / SearchScreen
+// Sekarang StatefulWidget karena tombol favorit mengubah tampilan.
+class DetailScreen extends StatefulWidget {
+  final Candi candi;
 
   const DetailScreen({super.key, required this.candi});
 
   @override
+  State<DetailScreen> createState() => _DetailScreenState();
+}
+
+class _DetailScreenState extends State<DetailScreen> {
+  bool isFavorite = false;
+  bool isSignedIn = false; // menyimpan status sign in
+
+  // initState(): dijalankan otomatis saat layar dimuat.
+  // Memeriksa status sign in dan status favorit candi ini.
+  @override
+  void initState() {
+    super.initState();
+    _checkSignInStatus();
+    _loadFavoriteStatus();
+  }
+
+  // _checkSignInStatus(): membaca isSignedIn dari SharedPreferences.
+  Future<void> _checkSignInStatus() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final bool signedIn = prefs.getBool('isSignedIn') ?? false;
+    if (!mounted) return;
+    setState(() {
+      isSignedIn = signedIn;
+    });
+  }
+
+  // _loadFavoriteStatus(): membaca status favorit candi ini.
+  // Kuncinya 'favorite_<nama candi>' sehingga tiap candi punya status sendiri.
+  Future<void> _loadFavoriteStatus() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final bool favorite =
+        prefs.getBool('favorite_${widget.candi.name}') ?? false;
+    if (!mounted) return;
+    setState(() {
+      isFavorite = favorite;
+    });
+  }
+
+  // _toggleFavorite(): membalik status favorit.
+  // Jika belum sign in, pengguna diarahkan ke layar Sign In.
+  Future<void> _toggleFavorite() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    if (!isSignedIn) {
+      // Menunda navigasi sampai frame selesai dibangun
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacementNamed(context, '/signin');
+      });
+      return;
+    }
+
+    final bool favoriteStatus = !isFavorite;
+    await prefs.setBool('favorite_${widget.candi.name}', favoriteStatus);
+
+    if (!mounted) return;
+    setState(() {
+      isFavorite = favoriteStatus;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final candi = widget.candi; // singkatan agar kode lebih ringkas
+
     return Scaffold(
-      // SingleChildScrollView mencegah RenderFlex overflowed
-      // saat konten lebih tinggi daripada layar.
       body: SingleChildScrollView(
         child: Column(
           children: [
             // ===== DetailHeader =====
-            // Stack menumpuk tombol Back di atas gambar utama.
             Stack(
               children: [
-                // Gambar utama dengan sudut membulat
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8.0),
                   child: ClipRRect(
@@ -33,7 +93,6 @@ class DetailScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Tombol Back kustom (lingkaran ungu transparan)
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
@@ -43,7 +102,6 @@ class DetailScreen extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
-                      // pop mengeluarkan layar teratas dari tumpukan
                       onPressed: () {
                         Navigator.pop(context);
                       },
@@ -61,7 +119,6 @@ class DetailScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 16),
-                  // Info atas: nama candi dan tombol favorit
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -72,15 +129,20 @@ class DetailScreen extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      // Fungsi toggle favorit belum dibuat (sesuai slide)
+                      // Tombol favorit: ikon penuh merah hanya jika sudah
+                      // sign in dan candi ini favorit
                       IconButton(
-                        onPressed: () {},
-                        icon: const Icon(Icons.favorite_border),
+                        onPressed: _toggleFavorite,
+                        icon: Icon(
+                          isSignedIn && isFavorite
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          color: isSignedIn && isFavorite ? Colors.red : null,
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // Info tengah: lokasi, tahun dibangun, tipe
                   Row(
                     children: [
                       const Icon(Icons.place, color: Colors.red),
@@ -126,7 +188,6 @@ class DetailScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   Divider(color: Colors.deepPurple.shade100),
                   const SizedBox(height: 16),
-                  // Info bawah: deskripsi
                   const Text(
                     'Deskripsi',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -149,7 +210,6 @@ class DetailScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
-                  // Daftar gambar yang digulir ke samping
                   SizedBox(
                     height: 124,
                     child: ListView.builder(
@@ -159,7 +219,6 @@ class DetailScreen extends StatelessWidget {
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: GestureDetector(
-                            // Aksi showFullScreen dibuat pada tahap berikutnya
                             onTap: () {},
                             child: Container(
                               decoration: BoxDecoration(
@@ -171,19 +230,16 @@ class DetailScreen extends StatelessWidget {
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(10),
-                                // Gambar dari internet disimpan di cache
                                 child: CachedNetworkImage(
                                   imageUrl: candi.imageUrls[index],
                                   width: 120,
                                   height: 120,
                                   fit: BoxFit.cover,
-                                  // Tampil saat gambar sedang dimuat
                                   placeholder: (context, url) => Container(
                                     width: 120,
                                     height: 120,
                                     color: Colors.deepPurple[50],
                                   ),
-                                  // Tampil jika gambar gagal dimuat
                                   errorWidget: (context, url, error) =>
                                       const Icon(Icons.error),
                                 ),
